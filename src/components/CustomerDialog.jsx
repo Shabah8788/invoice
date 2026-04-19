@@ -27,14 +27,18 @@ const emptyCustomer = {
 
 export default function CustomerDialog({ open, onClose, customer, onSaved }) {
   const [form, setForm] = useState(emptyCustomer);
+  const [lookupQuery, setLookupQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
 
   useEffect(() => {
     if (customer) {
-      setForm({ ...emptyCustomer, ...customer });
+      const nextForm = { ...emptyCustomer, ...customer };
+      setForm(nextForm);
+      setLookupQuery(nextForm.org_number || nextForm.company_name || "");
     } else {
       setForm(emptyCustomer);
+      setLookupQuery("");
     }
   }, [customer, open]);
 
@@ -43,7 +47,7 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
   }
 
   async function lookupCompany() {
-    const query = (form.org_number || form.company_name || "").trim();
+    const query = lookupQuery.trim();
 
     if (!query || query.length < 3) {
       toast.error("Ange organisationsnummer eller företagsnamn");
@@ -80,15 +84,16 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
           phone: c.phone || f.phone,
         }));
 
+        setLookupQuery(c.company_name || c.org_number || query);
         toast.success("Företagsuppgifter hämtade!");
       } else {
         toast.error("Kunde inte hitta företaget");
       }
     } catch (e) {
       toast.error("Lookup misslyckades");
+    } finally {
+      setLookupLoading(false);
     }
-
-    setLookupLoading(false);
   }
 
   async function handleSave() {
@@ -97,16 +102,19 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
       return;
     }
     setLoading(true);
-    if (customer?.id) {
-      await base44.entities.Customer.update(customer.id, form);
-      toast.success("Kund uppdaterad");
-    } else {
-      await base44.entities.Customer.create(form);
-      toast.success("Kund skapad");
+    try {
+      if (customer?.id) {
+        await base44.entities.Customer.update(customer.id, form);
+        toast.success("Kund uppdaterad");
+      } else {
+        await base44.entities.Customer.create(form);
+        toast.success("Kund skapad");
+      }
+      onSaved();
+      onClose();
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    onSaved();
-    onClose();
   }
 
   return (
@@ -133,8 +141,8 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
               <Label>Sök företag (org.nr eller namn)</Label>
               <div className="flex gap-2">
                 <Input
-                  value={form.org_number || form.company_name}
-                  onChange={(e) => update("org_number", e.target.value)}
+                  value={lookupQuery}
+                  onChange={(e) => setLookupQuery(e.target.value)}
                   placeholder="Org.nr eller företagsnamn"
                 />
                 <Button type="button" variant="outline" onClick={lookupCompany} disabled={lookupLoading}>
