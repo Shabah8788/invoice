@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "🚀 Full Stack Debug (Stable)",
+      "name": "🚀 Full Stack Debug (Reliable)",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/backend-node",
@@ -11,7 +11,7 @@
       "envFile": "${workspaceFolder}/backend-node/.env",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"],
-      "preLaunchTask": "Start Frontend",
+      "preLaunchTask": "Start Frontend Detached",
       "serverReadyAction": {
         "pattern": "Backend running on http://localhost:4000",
         "uriFormat": "http://localhost:5173",
