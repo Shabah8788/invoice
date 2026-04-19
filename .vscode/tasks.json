@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Backend",
+      "type": "npm",
+      "script": "dev:backend",
+      "path": "",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "file": 1,
+          "location": 1,
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*invoice-backend-node@.* dev.*|.*node --watch src/server.js.*",
+          "endsPattern": ".*Backend running on http://localhost:4000.*"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Start Frontend",
+      "type": "npm",
+      "script": "dev:frontend",
+      "path": "",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "file": 1,
+          "location": 1,
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*base44-app@.* dev:frontend.*|.*vite.*",
+          "endsPattern": ".*Local:\s+http://localhost:5173/.*"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Start Frontend + Backend",
+      "dependsOn": [
+        "Start Backend",
+        "Start Frontend"
+      ],
+      "dependsOrder": "parallel"
+    }
+  ]
+}
