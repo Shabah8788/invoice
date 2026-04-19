@@ -17,6 +17,44 @@ const pool = new Pool(connectionString
 
 export const query = (text, params) => pool.query(text, params);
 
+async function getColumns(tableName) {
+  const result = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1
+     ORDER BY ordinal_position`,
+    [tableName]
+  );
+
+  return result.rows.map((row) => row.column_name);
+}
+
+async function ensureJsonDataColumn(tableName) {
+  const columns = await getColumns(tableName);
+
+  if (!columns.includes('data')) {
+    await pool.query(`ALTER TABLE ${tableName} ADD COLUMN data JSONB DEFAULT '{}'::jsonb`);
+  }
+
+  const sourceColumns = columns.filter(
+    (column) => !['id', 'organization_id', 'data'].includes(column)
+  );
+
+  if (sourceColumns.length === 0) {
+    return;
+  }
+
+  const jsonPairs = sourceColumns
+    .map((column) => `'${column}', to_jsonb(${tableName}.${column})`)
+    .join(', ');
+
+  await pool.query(`
+    UPDATE ${tableName}
+    SET data = COALESCE(data, '{}'::jsonb) || jsonb_strip_nulls(jsonb_build_object(${jsonPairs}))
+    WHERE data IS NULL OR data = '{}'::jsonb
+  `);
+}
+
 export async function initDb() {
   try {
     await pool.query('SELECT 1');
@@ -70,4 +108,9 @@ export async function initDb() {
       data JSONB DEFAULT '{}'::jsonb
     );
   `);
+
+  await ensureJsonDataColumn('company_profiles');
+  await ensureJsonDataColumn('customers');
+  await ensureJsonDataColumn('products');
+  await ensureJsonDataColumn('invoices');
 }
