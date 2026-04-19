@@ -2,29 +2,29 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Start Frontend",
-      "type": "npm",
-      "script": "dev:frontend",
-      "path": "",
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "custom",
-        "pattern": {
-          "regexp": "^(.*)$",
-          "file": 1,
-          "location": 1,
-          "message": 1
-        },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": ".*vite.*|.*base44-app@.*dev:frontend.*",
-          "endsPattern": ".*Local:\s+http://localhost:5173/.*"
-        }
+      "label": "Start Frontend Detached",
+      "type": "shell",
+      "command": "if lsof -i :5173 >/dev/null 2>&1; then echo 'Frontend already running on 5173'; else nohup npm run dev:frontend > .vscode/vite.log 2>&1 & echo $! > .vscode/vite.pid && echo 'Frontend started in background'; fi",
+      "options": {
+        "cwd": "${workspaceFolder}"
       },
+      "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated",
-        "group": "frontend"
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Stop Frontend Detached",
+      "type": "shell",
+      "command": "if [ -f .vscode/vite.pid ]; then kill $(cat .vscode/vite.pid) >/dev/null 2>&1 || true; rm -f .vscode/vite.pid; echo 'Frontend stopped'; else echo 'No frontend pid file'; fi",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
       }
     }
   ]
