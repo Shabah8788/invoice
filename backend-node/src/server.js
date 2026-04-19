@@ -15,6 +15,7 @@ app.use(express.json());
 
 const upload = multer({ dest: 'uploads/' });
 const SECRET = process.env.JWT_SECRET || 'dev_secret';
+const PORT = Number(process.env.PORT || 4000);
 
 await initDb();
 
@@ -104,4 +105,4 @@ app.post('/api/company-profile', auth, async (req, res) => res.json(await create
 app.post('/api/integrations/send-email', auth, (req, res) => res.json({ success: true }));
 app.post('/api/integrations/upload', auth, upload.single('file'), (req, res) => res.json({ file_url: `/uploads/${req.file.filename}` }));
 
-app.listen(4000, () => console.log('Backend running on http://localhost:4000'));
+app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
