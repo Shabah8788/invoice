@@ -3,10 +3,11 @@
   "configurations": [
     {
       "name": "Run App (Frontend + Backend)",
-      "type": "node-terminal",
+      "type": "pwa-chrome",
       "request": "launch",
-      "command": "npm run dev",
-      "cwd": "${workspaceFolder}"
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src",
+      "preLaunchTask": "Start Frontend + Backend"
     },
     {
       "name": "Backend: Launch Node API",
@@ -27,24 +28,6 @@
       "request": "launch",
       "command": "npm run dev:frontend",
       "cwd": "${workspaceFolder}"
-    },
-    {
-      "name": "Frontend: Chrome",
-      "type": "pwa-chrome",
-      "request": "launch",
-      "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/src"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Debug Full Stack",
-      "configurations": [
-        "Backend: Launch Node API",
-        "Frontend: Launch Vite",
-        "Frontend: Chrome"
-      ],
-      "stopAll": true
     }
   ]
 }
