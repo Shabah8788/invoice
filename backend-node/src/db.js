@@ -1,13 +1,32 @@
+import 'dotenv/config';
 import pkg from 'pg';
 const { Pool } = pkg;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/invoice_app'
-});
+const connectionString = process.env.DATABASE_URL || null;
+
+const pool = new Pool(connectionString
+  ? { connectionString }
+  : {
+      user: process.env.PGUSER || 'postgres',
+      host: process.env.PGHOST || 'localhost',
+      database: process.env.PGDATABASE || 'invoice_app',
+      password: process.env.PGPASSWORD || 'postgres',
+      port: process.env.PGPORT ? Number(process.env.PGPORT) : 5432,
+    }
+);
 
 export const query = (text, params) => pool.query(text, params);
 
 export async function initDb() {
+  try {
+    await pool.query('SELECT 1');
+  } catch (err) {
+    console.error('\n❌ DATABASE CONNECTION FAILED');
+    console.error('Check your PostgreSQL credentials.');
+    console.error('Error:', err.message, '\n');
+    process.exit(1);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS organizations (
       id UUID PRIMARY KEY,
