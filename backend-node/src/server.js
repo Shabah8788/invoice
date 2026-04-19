@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { v4 as uuid } from 'uuid';
 import { query, initDb } from './db.js';
+import { searchLocalCompany, searchExternalCompany } from './companyLookup.js';
 
 dotenv.config();
 
@@ -101,6 +102,21 @@ app.delete('/api/invoices/:id', auth, async (req, res) => { await remove('invoic
 
 app.get('/api/company-profile', auth, async (req, res) => res.json(await list('company_profiles', req.user.orgId)));
 app.post('/api/company-profile', auth, async (req, res) => res.json(await create('company_profiles', req.user.orgId, req.body)));
+app.put('/api/company-profile/:id', auth, async (req, res) => { await update('company_profiles', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
+app.delete('/api/company-profile/:id', auth, async (req, res) => { await remove('company_profiles', req.params.id, req.user.orgId); res.json({ ok:true }); });
+
+app.post('/api/integrations/company-lookup', auth, async (req, res) => {
+  const queryStr = String(req.body?.query || '').trim();
+  if (!queryStr) return res.status(400).json({ error: 'Query required' });
+
+  const local = await searchLocalCompany(req.user.orgId, queryStr);
+  if (local) return res.json({ found: true, source: 'local', company: local });
+
+  const external = await searchExternalCompany(queryStr);
+  if (external) return res.json({ found: true, source: 'external', company: external });
+
+  return res.json({ found: false });
+});
 
 app.post('/api/integrations/send-email', auth, (req, res) => res.json({ success: true }));
 app.post('/api/integrations/upload', auth, upload.single('file'), (req, res) => res.json({ file_url: `/uploads/${req.file.filename}` }));
