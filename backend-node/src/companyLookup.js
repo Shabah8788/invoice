@@ -13,7 +13,18 @@ export function formatOrgNumber(value = '') {
 export function deriveVatNumber(value = '') {
   const digits = normalizeOrgNumber(value);
   if (digits.length !== 10) return '';
-  return `NO${digits}MVA`;
+  return `SE${digits}01`;
+}
+
+function pickFirst(payload) {
+  if (!payload) return null;
+  if (Array.isArray(payload)) return payload[0] || null;
+  if (Array.isArray(payload.results)) return payload.results[0] || null;
+  if (Array.isArray(payload.data)) return payload.data[0] || null;
+  if (Array.isArray(payload.items)) return payload.items[0] || null;
+  if (Array.isArray(payload.companies)) return payload.companies[0] || null;
+  if (Array.isArray(payload.hits)) return payload.hits[0] || null;
+  return payload;
 }
 
 export function mapCompanyRecord(record, fallbackQuery = '') {
@@ -23,30 +34,21 @@ export function mapCompanyRecord(record, fallbackQuery = '') {
     record.org_number ||
     record.organization_number ||
     record.organizationNumber ||
-    record.orgNo ||
+    record.organisationsnummer ||
+    record.organisationsnr ||
+    record.orgnr ||
     record.registration_number ||
     record.registrationNumber ||
-    record.organisasjonsnummer ||
     '';
 
-  const companyName =
-    record.company_name ||
-    record.name ||
-    record.companyName ||
-    record.legal_name ||
-    record.legalName ||
-    record.navn ||
-    fallbackQuery ||
-    '';
-
-  const address =
+  const streetAddress =
     record.address ||
     record.street ||
     record.street_address ||
     record.streetAddress ||
-    record.visiting_address ||
-    record.visitingAddress ||
-    record.forretningsadresse?.adresse?.join(' ') ||
+    record.besoksadress ||
+    record.besöksadress ||
+    record.postadress ||
     '';
 
   const postalCode =
@@ -54,39 +56,53 @@ export function mapCompanyRecord(record, fallbackQuery = '') {
     record.zip ||
     record.zip_code ||
     record.zipCode ||
-    record.postcode ||
-    record.postCode ||
-    record.forretningsadresse?.postnummer ||
+    record.postnummer ||
+    record.postnr ||
     '';
 
   const city =
     record.city ||
     record.locality ||
     record.town ||
-    record.forretningsadresse?.poststed ||
+    record.postort ||
     '';
 
   const country =
     record.country ||
     record.country_name ||
     record.countryName ||
-    record.forretningsadresse?.land ||
-    'Norge';
+    'Sverige';
 
-  const email = record.email || '';
-  const phone = record.phone || record.telephone || record.phone_number || record.phoneNumber || '';
-  const vatNumber = record.vat_number || record.vatNumber || deriveVatNumber(orgNumber);
+  const companyName =
+    record.company_name ||
+    record.name ||
+    record.companyName ||
+    record.foretagsnamn ||
+    record.företagsnamn ||
+    record.namn ||
+    fallbackQuery ||
+    '';
+
+  const vatNumber =
+    record.vat_number ||
+    record.vatNumber ||
+    record.momsregistreringsnummer ||
+    deriveVatNumber(orgNumber);
+
+  const addressParts = [streetAddress, postalCode && city ? `${postalCode} ${city}` : '']
+    .filter(Boolean)
+    .join(', ');
 
   return {
     company_name: companyName,
     org_number: formatOrgNumber(orgNumber),
     vat_number: vatNumber,
-    address,
+    address: streetAddress || addressParts,
     postal_code: postalCode,
     city,
     country,
-    email,
-    phone,
+    email: record.email || '',
+    phone: record.phone || record.telephone || record.phone_number || record.phoneNumber || '',
   };
 }
 
@@ -129,16 +145,7 @@ export async function searchLocalCompany(orgId, lookupQuery) {
 }
 
 export async function searchExternalCompany(lookupQuery) {
-  const normalized = normalizeOrgNumber(lookupQuery);
-  const isOrgNumber = normalized.length === 9 || normalized.length === 10;
-
-  let url;
-  if (isOrgNumber) {
-    url = `https://data.brreg.no/enhetsregisteret/api/enheter/${normalized}`;
-  } else {
-    url = `https://data.brreg.no/enhetsregisteret/api/enheter?navn=${encodeURIComponent(lookupQuery)}`;
-  }
-
+  const url = `https://www.bolagsfakta.se/api/search?what=${encodeURIComponent(lookupQuery)}`;
   const response = await fetch(url, {
     headers: { Accept: 'application/json' }
   });
@@ -146,7 +153,6 @@ export async function searchExternalCompany(lookupQuery) {
   if (!response.ok) return null;
 
   const payload = await response.json();
-  const record = isOrgNumber ? payload : payload?._embedded?.enheter?.[0];
-
+  const record = pickFirst(payload);
   return mapCompanyRecord(record, lookupQuery);
 }
