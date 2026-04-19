@@ -29,14 +29,33 @@ function auth(req, res, next) {
   }
 }
 
+async function list(table, orgId) {
+  const r = await query(`SELECT id,data FROM ${table} WHERE organization_id=$1`, [orgId]);
+  return r.rows.map(x => ({ id: x.id, ...x.data }));
+}
+
+async function create(table, orgId, body) {
+  const id = uuid();
+  await query(`INSERT INTO ${table}(id,organization_id,data) VALUES($1,$2,$3)`, [id, orgId, body]);
+  return { id };
+}
+
+async function update(table, id, orgId, body) {
+  await query(`UPDATE ${table} SET data=$1 WHERE id=$2 AND organization_id=$3`, [body, id, orgId]);
+}
+
+async function remove(table, id, orgId) {
+  await query(`DELETE FROM ${table} WHERE id=$1 AND organization_id=$2`, [id, orgId]);
+}
+
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password, organizationName } = req.body;
+  const { email, password } = req.body;
   const hash = await bcrypt.hash(password, 10);
   const userId = uuid();
   const orgId = uuid();
 
   await query('INSERT INTO users(id,email,password_hash) VALUES($1,$2,$3)', [userId, email, hash]);
-  await query('INSERT INTO organizations(id,name) VALUES($1,$2)', [orgId, organizationName]);
+  await query('INSERT INTO organizations(id,name) VALUES($1,$2)', [orgId, 'My Company']);
   await query('INSERT INTO organization_members(user_id,organization_id) VALUES($1,$2)', [userId, orgId]);
 
   const token = jwt.sign({ userId, orgId }, SECRET);
@@ -61,53 +80,28 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', auth, async (req, res) => {
   const user = await query('SELECT id,email,subscription FROM users WHERE id=$1', [req.user.userId]);
-  res.json({ ...user.rows[0] });
+  res.json(user.rows[0]);
 });
 
-app.get('/api/customers', auth, async (req, res) => {
-  const result = await query('SELECT * FROM customers WHERE organization_id=$1', [req.user.orgId]);
-  res.json(result.rows);
-});
+app.get('/api/customers', auth, async (req, res) => res.json(await list('customers', req.user.orgId)));
+app.post('/api/customers', auth, async (req, res) => res.json(await create('customers', req.user.orgId, req.body)));
+app.put('/api/customers/:id', auth, async (req, res) => { await update('customers', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
+app.delete('/api/customers/:id', auth, async (req, res) => { await remove('customers', req.params.id, req.user.orgId); res.json({ ok:true }); });
 
-app.post('/api/customers', auth, async (req, res) => {
-  const id = uuid();
-  await query('INSERT INTO customers(id,organization_id,company_name,email,phone,address) VALUES($1,$2,$3,$4,$5,$6)', [
-    id,
-    req.user.orgId,
-    req.body.company_name,
-    req.body.email,
-    req.body.phone,
-    req.body.address
-  ]);
-  res.json({ id });
-});
+app.get('/api/products', auth, async (req, res) => res.json(await list('products', req.user.orgId)));
+app.post('/api/products', auth, async (req, res) => res.json(await create('products', req.user.orgId, req.body)));
+app.put('/api/products/:id', auth, async (req, res) => { await update('products', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
+app.delete('/api/products/:id', auth, async (req, res) => { await remove('products', req.params.id, req.user.orgId); res.json({ ok:true }); });
 
-app.get('/api/invoices', auth, async (req, res) => {
-  const result = await query('SELECT * FROM invoices WHERE organization_id=$1 ORDER BY created_at DESC', [req.user.orgId]);
-  res.json(result.rows);
-});
+app.get('/api/invoices', auth, async (req, res) => res.json(await list('invoices', req.user.orgId)));
+app.post('/api/invoices', auth, async (req, res) => res.json(await create('invoices', req.user.orgId, req.body)));
+app.put('/api/invoices/:id', auth, async (req, res) => { await update('invoices', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
+app.delete('/api/invoices/:id', auth, async (req, res) => { await remove('invoices', req.params.id, req.user.orgId); res.json({ ok:true }); });
 
-app.post('/api/invoices', auth, async (req, res) => {
-  const id = uuid();
-  await query('INSERT INTO invoices(id,organization_id,invoice_number,status,customer_name,total,lines) VALUES($1,$2,$3,$4,$5,$6,$7)', [
-    id,
-    req.user.orgId,
-    req.body.invoice_number,
-    'draft',
-    req.body.customer_name,
-    req.body.total,
-    JSON.stringify(req.body.lines)
-  ]);
-  res.json({ id });
-});
+app.get('/api/company-profile', auth, async (req, res) => res.json(await list('company_profiles', req.user.orgId)));
+app.post('/api/company-profile', auth, async (req, res) => res.json(await create('company_profiles', req.user.orgId, req.body)));
 
-app.post('/api/integrations/send-email', auth, (req, res) => {
-  console.log('EMAIL SENT', req.body);
-  res.json({ success: true });
-});
-
-app.post('/api/integrations/upload', auth, upload.single('file'), (req, res) => {
-  res.json({ file_url: `/uploads/${req.file.filename}` });
-});
+app.post('/api/integrations/send-email', auth, (req, res) => res.json({ success: true }));
+app.post('/api/integrations/upload', auth, upload.single('file'), (req, res) => res.json({ file_url: `/uploads/${req.file.filename}` }));
 
 app.listen(4000, () => console.log('Backend running on http://localhost:4000'));
