@@ -13,17 +13,7 @@ export function formatOrgNumber(value = '') {
 export function deriveVatNumber(value = '') {
   const digits = normalizeOrgNumber(value);
   if (digits.length !== 10) return '';
-  return `SE${digits}01`;
-}
-
-function extractFirstRecord(payload) {
-  if (!payload) return null;
-  if (Array.isArray(payload)) return payload[0] || null;
-  if (Array.isArray(payload.results)) return payload.results[0] || null;
-  if (Array.isArray(payload.data)) return payload.data[0] || null;
-  if (Array.isArray(payload.items)) return payload.items[0] || null;
-  if (payload.company) return payload.company;
-  return payload;
+  return `NO${digits}MVA`;
 }
 
 export function mapCompanyRecord(record, fallbackQuery = '') {
@@ -36,6 +26,7 @@ export function mapCompanyRecord(record, fallbackQuery = '') {
     record.orgNo ||
     record.registration_number ||
     record.registrationNumber ||
+    record.organisasjonsnummer ||
     '';
 
   const companyName =
@@ -44,6 +35,7 @@ export function mapCompanyRecord(record, fallbackQuery = '') {
     record.companyName ||
     record.legal_name ||
     record.legalName ||
+    record.navn ||
     fallbackQuery ||
     '';
 
@@ -54,6 +46,7 @@ export function mapCompanyRecord(record, fallbackQuery = '') {
     record.streetAddress ||
     record.visiting_address ||
     record.visitingAddress ||
+    record.forretningsadresse?.adresse?.join(' ') ||
     '';
 
   const postalCode =
@@ -63,10 +56,23 @@ export function mapCompanyRecord(record, fallbackQuery = '') {
     record.zipCode ||
     record.postcode ||
     record.postCode ||
+    record.forretningsadresse?.postnummer ||
     '';
 
-  const city = record.city || record.locality || record.town || '';
-  const country = record.country || record.country_name || record.countryName || 'Sverige';
+  const city =
+    record.city ||
+    record.locality ||
+    record.town ||
+    record.forretningsadresse?.poststed ||
+    '';
+
+  const country =
+    record.country ||
+    record.country_name ||
+    record.countryName ||
+    record.forretningsadresse?.land ||
+    'Norge';
+
   const email = record.email || '';
   const phone = record.phone || record.telephone || record.phone_number || record.phoneNumber || '';
   const vatNumber = record.vat_number || record.vatNumber || deriveVatNumber(orgNumber);
@@ -119,45 +125,28 @@ export async function searchLocalCompany(orgId, lookupQuery) {
     return mapCompanyRecord(profiles.rows[0].data, lookupQuery);
   }
 
-  const normalized = normalizeOrgNumber(lookupQuery);
-  if (normalized.length === 10) {
-    return {
-      company_name: '',
-      org_number: formatOrgNumber(normalized),
-      vat_number: deriveVatNumber(normalized),
-      address: '',
-      postal_code: '',
-      city: '',
-      country: 'Sverige',
-      email: '',
-      phone: '',
-    };
-  }
-
   return null;
 }
 
 export async function searchExternalCompany(lookupQuery) {
-  const apiUrl = process.env.COMPANY_LOOKUP_API_URL;
-  if (!apiUrl) return null;
+  const normalized = normalizeOrgNumber(lookupQuery);
+  const isOrgNumber = normalized.length === 9 || normalized.length === 10;
 
-  const url = new URL(apiUrl);
-  url.searchParams.set('q', lookupQuery);
-  url.searchParams.set('query', lookupQuery);
-  url.searchParams.set('search', lookupQuery);
-  url.searchParams.set('orgNumber', normalizeOrgNumber(lookupQuery));
-
-  const headers = { Accept: 'application/json' };
-  if (process.env.COMPANY_LOOKUP_API_KEY) {
-    const headerName = process.env.COMPANY_LOOKUP_API_KEY_HEADER || 'Authorization';
-    headers[headerName] = headerName.toLowerCase() === 'authorization'
-      ? `Bearer ${process.env.COMPANY_LOOKUP_API_KEY}`
-      : process.env.COMPANY_LOOKUP_API_KEY;
+  let url;
+  if (isOrgNumber) {
+    url = `https://data.brreg.no/enhetsregisteret/api/enheter/${normalized}`;
+  } else {
+    url = `https://data.brreg.no/enhetsregisteret/api/enheter?navn=${encodeURIComponent(lookupQuery)}`;
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' }
+  });
+
   if (!response.ok) return null;
 
   const payload = await response.json();
-  return mapCompanyRecord(extractFirstRecord(payload), lookupQuery);
+  const record = isOrgNumber ? payload : payload?._embedded?.enheter?.[0];
+
+  return mapCompanyRecord(record, lookupQuery);
 }
