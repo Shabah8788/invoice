@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { v4 as uuid } from 'uuid';
 import { query, initDb } from './db.js';
-import { searchLocalCompany, searchExternalCompany } from './companyLookup.js';
+import { searchLocalCompany, searchExternalCompany, searchExternalCompanies, searchLocalCompanies } from './companyLookup.js';
 
 dotenv.config();
 
@@ -90,20 +90,17 @@ app.post('/api/customers', auth, async (req, res) => res.json(await create('cust
 app.put('/api/customers/:id', auth, async (req, res) => { await update('customers', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
 app.delete('/api/customers/:id', auth, async (req, res) => { await remove('customers', req.params.id, req.user.orgId); res.json({ ok:true }); });
 
-app.get('/api/products', auth, async (req, res) => res.json(await list('products', req.user.orgId)));
-app.post('/api/products', auth, async (req, res) => res.json(await create('products', req.user.orgId, req.body)));
-app.put('/api/products/:id', auth, async (req, res) => { await update('products', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
-app.delete('/api/products/:id', auth, async (req, res) => { await remove('products', req.params.id, req.user.orgId); res.json({ ok:true }); });
+app.post('/api/integrations/company-autocomplete', auth, async (req, res) => {
+  const queryStr = String(req.body?.query || '').trim();
+  if (!queryStr || queryStr.length < 2) return res.json({ items: [] });
 
-app.get('/api/invoices', auth, async (req, res) => res.json(await list('invoices', req.user.orgId)));
-app.post('/api/invoices', auth, async (req, res) => res.json(await create('invoices', req.user.orgId, req.body)));
-app.put('/api/invoices/:id', auth, async (req, res) => { await update('invoices', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
-app.delete('/api/invoices/:id', auth, async (req, res) => { await remove('invoices', req.params.id, req.user.orgId); res.json({ ok:true }); });
+  const local = await searchLocalCompanies(req.user.orgId, queryStr);
+  const external = await searchExternalCompanies(queryStr);
 
-app.get('/api/company-profile', auth, async (req, res) => res.json(await list('company_profiles', req.user.orgId)));
-app.post('/api/company-profile', auth, async (req, res) => res.json(await create('company_profiles', req.user.orgId, req.body)));
-app.put('/api/company-profile/:id', auth, async (req, res) => { await update('company_profiles', req.params.id, req.user.orgId, req.body); res.json({ ok:true }); });
-app.delete('/api/company-profile/:id', auth, async (req, res) => { await remove('company_profiles', req.params.id, req.user.orgId); res.json({ ok:true }); });
+  const items = [...local, ...external].slice(0, 8);
+
+  res.json({ items });
+});
 
 app.post('/api/integrations/company-lookup', auth, async (req, res) => {
   const queryStr = String(req.body?.query || '').trim();
@@ -117,8 +114,5 @@ app.post('/api/integrations/company-lookup', auth, async (req, res) => {
 
   return res.json({ found: false });
 });
-
-app.post('/api/integrations/send-email', auth, (req, res) => res.json({ success: true }));
-app.post('/api/integrations/upload', auth, upload.single('file'), (req, res) => res.json({ file_url: `/uploads/${req.file.filename}` }));
 
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
