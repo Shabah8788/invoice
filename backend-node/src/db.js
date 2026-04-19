@@ -22,8 +22,7 @@ export async function initDb() {
     await pool.query('SELECT 1');
   } catch (err) {
     console.error('\n❌ DATABASE CONNECTION FAILED');
-    console.error('Check your PostgreSQL credentials.');
-    console.error('Error:', err.message, '\n');
+    console.error(err.message);
     process.exit(1);
   }
 
@@ -50,40 +49,25 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS company_profiles (
       id UUID PRIMARY KEY,
       organization_id UUID UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
-      company_name TEXT,
-      next_invoice_number INT DEFAULT 1001,
-      logo_url TEXT
+      data JSONB DEFAULT '{}'::jsonb
     );
 
     CREATE TABLE IF NOT EXISTS customers (
       id UUID PRIMARY KEY,
       organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-      company_name TEXT,
-      email TEXT,
-      phone TEXT,
-      address TEXT
+      data JSONB DEFAULT '{}'::jsonb
     );
 
     CREATE TABLE IF NOT EXISTS products (
       id UUID PRIMARY KEY,
       organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-      name TEXT,
-      price NUMERIC,
-      vat_rate INT
+      data JSONB DEFAULT '{}'::jsonb
     );
 
     CREATE TABLE IF NOT EXISTS invoices (
       id UUID PRIMARY KEY,
       organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-      invoice_number TEXT,
-      status TEXT,
-      customer_name TEXT,
-      customer_email TEXT,
-      subtotal NUMERIC,
-      total NUMERIC,
-      vat_breakdown JSONB,
-      lines JSONB,
-      created_at TIMESTAMP DEFAULT NOW()
+      data JSONB DEFAULT '{}'::jsonb
     );
   `);
 }
