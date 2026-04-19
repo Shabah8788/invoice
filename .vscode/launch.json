@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Backend: Debug API",
+      "name": "🚀 Full Stack Debug (Stable)",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/backend-node",
@@ -10,27 +10,13 @@
       "runtimeExecutable": "node",
       "envFile": "${workspaceFolder}/backend-node/.env",
       "console": "integratedTerminal",
-      "skipFiles": [
-        "<node_internals>/**"
-      ]
-    },
-    {
-      "name": "Frontend: Chrome",
-      "type": "pwa-chrome",
-      "request": "launch",
-      "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/src",
-      "preLaunchTask": "Start Frontend"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "🚀 Full Stack Debug",
-      "configurations": [
-        "Backend: Debug API",
-        "Frontend: Chrome"
-      ],
-      "stopAll": true
+      "skipFiles": ["<node_internals>/**"],
+      "preLaunchTask": "Start Frontend",
+      "serverReadyAction": {
+        "pattern": "Backend running on http://localhost:4000",
+        "uriFormat": "http://localhost:5173",
+        "action": "openExternally"
+      }
     }
   ]
 }
