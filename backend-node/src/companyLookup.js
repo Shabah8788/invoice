@@ -1,4 +1,5 @@
 import { query } from './db.js';
+import axios from 'axios';
 
 export function normalizeOrgNumber(value = '') {
   return String(value).replace(/\D/g, '');
@@ -82,25 +83,44 @@ export async function searchLocalCompany(orgId, lookupQuery) {
   return null;
 }
 
+
 export async function searchExternalCompany(query) {
-  const url = `https://www.bolagsfakta.se/api/search?what=${encodeURIComponent(query)}`;
+  try {
+    const res = await axios.get(
+      `https://www.bolagsfakta.se/api/search?what=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          'User-Agent': 'PostmanRuntime/7.49.1',
+          'Accept': '*/*',
+          'Accept-Language': 'gzip, deflate, br',
+          'Accept-Encoding': 'https://www.bolagsfakta.se/',
+          'Origin': 'https://www.bolagsfakta.se',
+          'Connection': 'keep-alive'
+        },
+        timeout: 5000
+      }
+    );
 
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0',
-      'Referer': 'https://www.bolagsfakta.se/'
-    }
-  });
+    const json = res.data;
 
-  if (!res.ok) return null;
+    if (!json?.searchResultItems?.length) return null;
 
-  const json = await res.json();
+    const best = json.searchResultItems[0]; // första räcker
 
-  if (!json?.searchResultItems?.length) return null;
+    return {
+      company_name: best.companyName,
+      org_number: best.orgNr,
+      vat_number: `SE${best.orgNr.replace('-', '')}01`,
+      address: best.address,
+      postal_code: best.postNr,
+      city: best.postOrt || '',
+      country: 'Sverige',
+      email: '',
+      phone: ''
+    };
 
-  const best = pickBest(json.searchResultItems, query);
-
-  if (!best) return null;
-
-  return map(best, query);
+  } catch (err) {
+    console.log("❌ Bolagsfakta ERROR:", err.response?.status, err.message);
+    return null;
+  }
 }
