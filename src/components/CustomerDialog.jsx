@@ -42,39 +42,52 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  async function lookupOrg() {
-    if (!form.org_number || form.org_number.length < 6) {
-      toast.error("Ange ett giltigt organisationsnummer");
+  async function lookupCompany() {
+    const query = (form.org_number || form.company_name || "").trim();
+
+    if (!query || query.length < 3) {
+      toast.error("Ange organisationsnummer eller företagsnamn");
       return;
     }
+
     setLookupLoading(true);
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Hämta företagsinformation för svenskt organisationsnummer: ${form.org_number}. Returnera företagsnamn, adress, postnummer, stad, och momsregistreringsnummer (SE + orgnr utan bindestreck + 01).`,
-      add_context_from_internet: true,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          company_name: { type: "string" },
-          address: { type: "string" },
-          postal_code: { type: "string" },
-          city: { type: "string" },
-          vat_number: { type: "string" },
+
+    try {
+      const res = await fetch("/api/integrations/company-lookup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
         },
-      },
-    });
-    if (result.company_name) {
-      setForm((f) => ({
-        ...f,
-        company_name: result.company_name || f.company_name,
-        address: result.address || f.address,
-        postal_code: result.postal_code || f.postal_code,
-        city: result.city || f.city,
-        vat_number: result.vat_number || f.vat_number,
-      }));
-      toast.success("Företagsuppgifter hämtade!");
-    } else {
-      toast.error("Kunde inte hitta företaget");
+        body: JSON.stringify({ query }),
+      });
+
+      const result = await res.json();
+
+      if (result?.found && result.company) {
+        const c = result.company;
+
+        setForm((f) => ({
+          ...f,
+          company_name: c.company_name || f.company_name,
+          org_number: c.org_number || f.org_number,
+          address: c.address || f.address,
+          postal_code: c.postal_code || f.postal_code,
+          city: c.city || f.city,
+          vat_number: c.vat_number || f.vat_number,
+          country: c.country || f.country,
+          email: c.email || f.email,
+          phone: c.phone || f.phone,
+        }));
+
+        toast.success("Företagsuppgifter hämtade!");
+      } else {
+        toast.error("Kunde inte hitta företaget");
+      }
+    } catch (e) {
+      toast.error("Lookup misslyckades");
     }
+
     setLookupLoading(false);
   }
 
@@ -117,10 +130,14 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
 
           {form.customer_type === "company" && (
             <div>
-              <Label>Organisationsnummer</Label>
+              <Label>Sök företag (org.nr eller namn)</Label>
               <div className="flex gap-2">
-                <Input value={form.org_number} onChange={(e) => update("org_number", e.target.value)} placeholder="XXXXXX-XXXX" />
-                <Button type="button" variant="outline" onClick={lookupOrg} disabled={lookupLoading} className="shrink-0">
+                <Input
+                  value={form.org_number || form.company_name}
+                  onChange={(e) => update("org_number", e.target.value)}
+                  placeholder="Org.nr eller företagsnamn"
+                />
+                <Button type="button" variant="outline" onClick={lookupCompany} disabled={lookupLoading}>
                   {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
@@ -132,27 +149,14 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
             <Input value={form.company_name} onChange={(e) => update("company_name", e.target.value)} />
           </div>
 
-          {form.customer_type === "company" && (
-            <div>
-              <Label>Momsregistreringsnummer</Label>
-              <Input value={form.vat_number} onChange={(e) => update("vat_number", e.target.value)} />
-            </div>
-          )}
-
           <div>
-            <Label>Kontaktperson</Label>
-            <Input value={form.contact_person} onChange={(e) => update("contact_person", e.target.value)} />
+            <Label>Organisationsnummer</Label>
+            <Input value={form.org_number} onChange={(e) => update("org_number", e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>E-post</Label>
-              <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} />
-            </div>
-            <div>
-              <Label>Telefon</Label>
-              <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} />
-            </div>
+          <div>
+            <Label>Momsregistreringsnummer</Label>
+            <Input value={form.vat_number} onChange={(e) => update("vat_number", e.target.value)} />
           </div>
 
           <div>
@@ -175,14 +179,15 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
             </div>
           </div>
 
-          <div>
-            <Label>Referens</Label>
-            <Input value={form.reference} onChange={(e) => update("reference", e.target.value)} />
-          </div>
-
-          <div>
-            <Label>Anteckningar</Label>
-            <Textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} rows={3} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>E-post</Label>
+              <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} />
+            </div>
+            <div>
+              <Label>Telefon</Label>
+              <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
