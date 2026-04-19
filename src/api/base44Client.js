@@ -1,14 +1,69 @@
-import { createClient } from '@base44/sdk';
-import { appParams } from '@/lib/app-params';
+const API = 'http://localhost:4000/api';
 
-const { appId, token, functionsVersion, appBaseUrl } = appParams;
+function getToken() {
+  return localStorage.getItem('token');
+}
 
-//Create a client with authentication required
-export const base44 = createClient({
-  appId,
-  token,
-  functionsVersion,
-  serverUrl: 'https://preview--shapeless-smart-faktura-flow.base44.app/api/apps/69dae8dccd4c1b175f393d48',
-  requiresAuth: true,
-  appBaseUrl
-});
+async function api(path, method='GET', body) {
+  const res = await fetch(API + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(getToken() ? { Authorization: 'Bearer ' + getToken() } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export const base44 = {
+  auth: {
+    async me() {
+      return api('/auth/me');
+    },
+    async login(email, password) {
+      const r = await api('/auth/login','POST',{ email, password });
+      localStorage.setItem('token', r.token);
+      return r;
+    },
+    async register(email, password) {
+      const r = await api('/auth/register','POST',{ email, password });
+      localStorage.setItem('token', r.token);
+      return r;
+    },
+    logout() {
+      localStorage.removeItem('token');
+      window.location.reload();
+    },
+    redirectToLogin() {}
+  },
+
+  entities: {
+    Customer: crud('/customers'),
+    Product: crud('/products'),
+    Invoice: crud('/invoices'),
+    CompanyProfile: crud('/company-profile')
+  },
+
+  integrations: {
+    Core: {
+      SendEmail: (data) => api('/integrations/send-email','POST',data),
+      UploadFile: (file) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        return fetch(API+'/integrations/upload',{ method:'POST', body:fd, headers:{ Authorization:'Bearer '+getToken() } }).then(r=>r.json());
+      },
+      InvokeLLM: async () => ({})
+    }
+  }
+};
+
+function crud(path) {
+  return {
+    list: () => api(path),
+    create: (data) => api(path,'POST',data),
+    update: (id,data) => api(path+'/'+id,'PUT',data),
+    delete: (id) => api(path+'/'+id,'DELETE')
+  };
+}
