@@ -2,42 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Backend: Launch Node API",
-      "type": "node",
-      "request": "launch",
-      "cwd": "${workspaceFolder}/backend-node",
-      "program": "${workspaceFolder}/backend-node/src/server.js",
-      "runtimeExecutable": "node",
-      "envFile": "${workspaceFolder}/backend-node/.env",
-      "console": "integratedTerminal",
-      "skipFiles": [
-        "<node_internals>/**"
-      ]
-    },
-    {
-      "name": "Frontend: Launch Vite",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "npm run dev:frontend",
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "name": "Frontend: Chrome",
+      "name": "🚀 Full Stack (Frontend + Backend)",
       "type": "pwa-chrome",
       "request": "launch",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/src"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Run App (Frontend + Backend)",
-      "configurations": [
-        "Backend: Launch Node API",
-        "Frontend: Launch Vite",
-        "Frontend: Chrome"
-      ],
-      "stopAll": true
+      "webRoot": "${workspaceFolder}/src",
+      "preLaunchTask": "Start Frontend + Backend"
     }
   ]
 }
