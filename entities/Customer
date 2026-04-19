@@ -1,0 +1,67 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "customer_type": {
+      "type": "string",
+      "title": "Kundtyp",
+      "enum": [
+        "company",
+        "individual"
+      ],
+      "default": "company"
+    },
+    "company_name": {
+      "type": "string",
+      "title": "F\u00f6retagsnamn"
+    },
+    "org_number": {
+      "type": "string",
+      "title": "Organisationsnummer"
+    },
+    "vat_number": {
+      "type": "string",
+      "title": "Momsregistreringsnummer"
+    },
+    "contact_person": {
+      "type": "string",
+      "title": "Kontaktperson"
+    },
+    "email": {
+      "type": "string",
+      "title": "E-post"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Telefon"
+    },
+    "address": {
+      "type": "string",
+      "title": "Adress"
+    },
+    "postal_code": {
+      "type": "string",
+      "title": "Postnummer"
+    },
+    "city": {
+      "type": "string",
+      "title": "Stad"
+    },
+    "country": {
+      "type": "string",
+      "title": "Land",
+      "default": "Sverige"
+    },
+    "reference": {
+      "type": "string",
+      "title": "Referens"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Anteckningar"
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}

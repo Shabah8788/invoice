@@ -1,0 +1,113 @@
+{
+  "name": "CompanyProfile",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string",
+      "title": "F\u00f6retagsnamn"
+    },
+    "org_number": {
+      "type": "string",
+      "title": "Organisationsnummer"
+    },
+    "vat_number": {
+      "type": "string",
+      "title": "Momsregistreringsnummer"
+    },
+    "address": {
+      "type": "string",
+      "title": "Adress"
+    },
+    "postal_code": {
+      "type": "string",
+      "title": "Postnummer"
+    },
+    "city": {
+      "type": "string",
+      "title": "Stad"
+    },
+    "country": {
+      "type": "string",
+      "title": "Land",
+      "default": "Sverige"
+    },
+    "email": {
+      "type": "string",
+      "title": "E-post"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Telefon"
+    },
+    "website": {
+      "type": "string",
+      "title": "Webbplats"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logotyp"
+    },
+    "bankgiro": {
+      "type": "string",
+      "title": "Bankgiro"
+    },
+    "plusgiro": {
+      "type": "string",
+      "title": "Plusgiro"
+    },
+    "swish": {
+      "type": "string",
+      "title": "Swish"
+    },
+    "iban": {
+      "type": "string",
+      "title": "IBAN"
+    },
+    "bic": {
+      "type": "string",
+      "title": "BIC/SWIFT"
+    },
+    "bank_name": {
+      "type": "string",
+      "title": "Bank"
+    },
+    "default_payment_terms": {
+      "type": "number",
+      "title": "Betalningsvillkor (dagar)",
+      "default": 30
+    },
+    "default_vat_rate": {
+      "type": "number",
+      "title": "Standard momssats (%)",
+      "default": 25
+    },
+    "default_terms": {
+      "type": "string",
+      "title": "Standardvillkor"
+    },
+    "default_template": {
+      "type": "string",
+      "title": "Standardmall",
+      "enum": [
+        "minimal",
+        "modern",
+        "premium",
+        "classic"
+      ],
+      "default": "modern"
+    },
+    "primary_color": {
+      "type": "string",
+      "title": "Prim\u00e4rf\u00e4rg",
+      "default": "#2563eb"
+    },
+    "next_invoice_number": {
+      "type": "number",
+      "title": "N\u00e4sta fakturanummer",
+      "default": 1001
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}

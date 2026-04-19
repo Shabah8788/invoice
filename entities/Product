@@ -1,0 +1,52 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Namn"
+    },
+    "description": {
+      "type": "string",
+      "title": "Beskrivning"
+    },
+    "price": {
+      "type": "number",
+      "title": "Pris (SEK)"
+    },
+    "unit": {
+      "type": "string",
+      "title": "Enhet",
+      "enum": [
+        "st",
+        "timmar",
+        "dagar",
+        "km",
+        "kg",
+        "liter",
+        "meter",
+        "paket"
+      ],
+      "default": "st"
+    },
+    "vat_rate": {
+      "type": "number",
+      "title": "Momssats (%)",
+      "enum": [
+        25,
+        12,
+        6,
+        0
+      ],
+      "default": 25
+    },
+    "article_number": {
+      "type": "string",
+      "title": "Artikelnummer"
+    }
+  },
+  "required": [
+    "name",
+    "price"
+  ]
+}

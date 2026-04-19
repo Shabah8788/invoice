@@ -1,0 +1,18 @@
+export const TEMPLATE_OPTIONS = [
+  { value: "modern",   label: "Modern",   desc: "Blå gradienttopp, professionell" },
+  { value: "minimal",  label: "Minimal",  desc: "Ultra ren och avskalad" },
+  { value: "premium",  label: "Premium",  desc: "Svart & guld, lyx" },
+  { value: "classic",  label: "Klassisk", desc: "Traditionell affärsstil" },
+  { value: "nordic",   label: "Nordic",   desc: "Skandinavisk, grön" },
+  { value: "sunset",   label: "Sunset",   desc: "Orange–rosa gradient" },
+  { value: "midnight", label: "Midnight", desc: "Mörk elegant" },
+  { value: "rose",     label: "Rose",     desc: "Rosa & rosaröd" },
+  { value: "ocean",    label: "Ocean",    desc: "Teal havsvågor" },
+  { value: "royal",    label: "Royal",    desc: "Lila lyx" },
+  { value: "bold",     label: "Bold",     desc: "Stor typografi, orange" },
+  { value: "slate",    label: "Slate",    desc: "Professionell grå" },
+  { value: "forest",   label: "Forest",   desc: "Djup grön natur" },
+  { value: "creative", label: "Creative", desc: "Asymmetrisk sidofält" },
+  { value: "amber",    label: "Amber",    desc: "Varm gul–brun" },
+  { value: "cyber",    label: "Cyber",    desc: "Futuristisk neon mörk" },
+];

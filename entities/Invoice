@@ -1,0 +1,177 @@
+{
+  "name": "Invoice",
+  "type": "object",
+  "properties": {
+    "invoice_number": {
+      "type": "string",
+      "title": "Fakturanummer"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "draft",
+        "sent",
+        "paid",
+        "overdue",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "customer_id": {
+      "type": "string",
+      "title": "Kund-ID"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Kundnamn"
+    },
+    "customer_org_number": {
+      "type": "string",
+      "title": "Kund orgnr"
+    },
+    "customer_vat_number": {
+      "type": "string",
+      "title": "Kund momsnr"
+    },
+    "customer_address": {
+      "type": "string",
+      "title": "Kundadress"
+    },
+    "customer_postal_code": {
+      "type": "string",
+      "title": "Kundens postnummer"
+    },
+    "customer_city": {
+      "type": "string",
+      "title": "Kundens stad"
+    },
+    "customer_country": {
+      "type": "string",
+      "title": "Kundens land"
+    },
+    "customer_email": {
+      "type": "string",
+      "title": "Kundens e-post"
+    },
+    "customer_reference": {
+      "type": "string",
+      "title": "Kundens referens"
+    },
+    "invoice_date": {
+      "type": "string",
+      "title": "Fakturadatum"
+    },
+    "due_date": {
+      "type": "string",
+      "title": "F\u00f6rfallodatum"
+    },
+    "payment_terms": {
+      "type": "number",
+      "title": "Betalningsvillkor (dagar)"
+    },
+    "our_reference": {
+      "type": "string",
+      "title": "V\u00e5r referens"
+    },
+    "your_reference": {
+      "type": "string",
+      "title": "Er referens"
+    },
+    "message": {
+      "type": "string",
+      "title": "Meddelande"
+    },
+    "lines": {
+      "type": "array",
+      "title": "Fakturarader",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "discount_percent": {
+            "type": "number"
+          },
+          "vat_rate": {
+            "type": "number"
+          },
+          "line_total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number",
+      "title": "Delsumma"
+    },
+    "total_vat": {
+      "type": "number",
+      "title": "Moms totalt"
+    },
+    "total": {
+      "type": "number",
+      "title": "Totalt"
+    },
+    "vat_breakdown": {
+      "type": "array",
+      "title": "Momsspecifikation",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rate": {
+            "type": "number"
+          },
+          "base": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "template": {
+      "type": "string",
+      "title": "Mall",
+      "enum": [
+        "minimal",
+        "modern",
+        "premium",
+        "classic"
+      ],
+      "default": "modern"
+    },
+    "terms": {
+      "type": "string",
+      "title": "Villkor"
+    },
+    "company_snapshot": {
+      "type": "object",
+      "title": "F\u00f6retagsdata vid fakturatillf\u00e4llet"
+    }
+  },
+  "required": [
+    "invoice_number",
+    "customer_id",
+    "invoice_date",
+    "due_date"
+  ]
+}
