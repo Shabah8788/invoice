@@ -1,3 +1,4 @@
+// FULL FIXED VERSION
 import { query } from './db.js';
 
 export function normalizeOrgNumber(value = '') {
@@ -16,93 +17,46 @@ export function deriveVatNumber(value = '') {
   return `SE${digits}01`;
 }
 
-function pickFirst(payload) {
-  if (!payload) return null;
-  if (Array.isArray(payload)) return payload[0] || null;
-  if (Array.isArray(payload.results)) return payload.results[0] || null;
-  if (Array.isArray(payload.data)) return payload.data[0] || null;
-  if (Array.isArray(payload.items)) return payload.items[0] || null;
-  if (Array.isArray(payload.companies)) return payload.companies[0] || null;
-  if (Array.isArray(payload.hits)) return payload.hits[0] || null;
-  return payload;
+function extractDeep(obj, results = []) {
+  if (!obj) return results;
+
+  if (Array.isArray(obj)) {
+    obj.forEach(i => extractDeep(i, results));
+    return results;
+  }
+
+  if (typeof obj === 'object') {
+    const keys = Object.keys(obj).join(' ').toLowerCase();
+
+    if (
+      keys.includes('namn') ||
+      keys.includes('org') ||
+      keys.includes('post')
+    ) {
+      results.push(obj);
+    }
+
+    Object.values(obj).forEach(v => {
+      if (typeof v === 'object') extractDeep(v, results);
+    });
+  }
+
+  return results;
 }
 
-export function mapCompanyRecord(record, fallbackQuery = '') {
-  if (!record) return null;
-
-  const orgNumber =
-    record.org_number ||
-    record.organization_number ||
-    record.organizationNumber ||
-    record.organisationsnummer ||
-    record.organisationsnr ||
-    record.orgnr ||
-    record.registration_number ||
-    record.registrationNumber ||
-    '';
-
-  const streetAddress =
-    record.address ||
-    record.street ||
-    record.street_address ||
-    record.streetAddress ||
-    record.besoksadress ||
-    record.besöksadress ||
-    record.postadress ||
-    '';
-
-  const postalCode =
-    record.postal_code ||
-    record.zip ||
-    record.zip_code ||
-    record.zipCode ||
-    record.postnummer ||
-    record.postnr ||
-    '';
-
-  const city =
-    record.city ||
-    record.locality ||
-    record.town ||
-    record.postort ||
-    '';
-
-  const country =
-    record.country ||
-    record.country_name ||
-    record.countryName ||
-    'Sverige';
-
-  const companyName =
-    record.company_name ||
-    record.name ||
-    record.companyName ||
-    record.foretagsnamn ||
-    record.företagsnamn ||
-    record.namn ||
-    fallbackQuery ||
-    '';
-
-  const vatNumber =
-    record.vat_number ||
-    record.vatNumber ||
-    record.momsregistreringsnummer ||
-    deriveVatNumber(orgNumber);
-
-  const addressParts = [streetAddress, postalCode && city ? `${postalCode} ${city}` : '']
-    .filter(Boolean)
-    .join(', ');
+function mapCompany(record, fallback) {
+  const org = record.organisationsnummer || record.orgnr || record.org_number || '';
 
   return {
-    company_name: companyName,
-    org_number: formatOrgNumber(orgNumber),
-    vat_number: vatNumber,
-    address: streetAddress || addressParts,
-    postal_code: postalCode,
-    city,
-    country,
+    company_name: record.namn || record.företagsnamn || fallback,
+    org_number: formatOrgNumber(org),
+    vat_number: deriveVatNumber(org),
+    address: record.postadress || record.besöksadress || '',
+    postal_code: record.postnummer || '',
+    city: record.postort || '',
+    country: 'Sverige',
     email: record.email || '',
-    phone: record.phone || record.telephone || record.phone_number || record.phoneNumber || '',
+    phone: record.telefon || ''
   };
 }
 
@@ -110,49 +64,32 @@ export async function searchLocalCompany(orgId, lookupQuery) {
   const search = `%${lookupQuery.toLowerCase()}%`;
 
   const customers = await query(
-    `SELECT data
-     FROM customers
-     WHERE organization_id = $1
-       AND (
-         lower(COALESCE(data->>'company_name', '')) LIKE $2
-         OR lower(COALESCE(data->>'org_number', '')) LIKE $2
-       )
-     LIMIT 1`,
+    `SELECT data FROM customers WHERE organization_id=$1 AND (lower(data->>'company_name') LIKE $2 OR lower(data->>'org_number') LIKE $2) LIMIT 1`,
     [orgId, search]
   );
 
-  if (customers.rows[0]) {
-    return mapCompanyRecord(customers.rows[0].data, lookupQuery);
-  }
-
-  const profiles = await query(
-    `SELECT data
-     FROM company_profiles
-     WHERE organization_id = $1
-       AND (
-         lower(COALESCE(data->>'company_name', '')) LIKE $2
-         OR lower(COALESCE(data->>'org_number', '')) LIKE $2
-       )
-     LIMIT 1`,
-    [orgId, search]
-  );
-
-  if (profiles.rows[0]) {
-    return mapCompanyRecord(profiles.rows[0].data, lookupQuery);
-  }
+  if (customers.rows[0]) return customers.rows[0].data;
 
   return null;
 }
 
-export async function searchExternalCompany(lookupQuery) {
-  const url = `https://www.bolagsfakta.se/api/search?what=${encodeURIComponent(lookupQuery)}`;
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json' }
+export async function searchExternalCompany(query) {
+  const url = `https://www.bolagsfakta.se/api/search?what=${encodeURIComponent(query)}`;
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: 'application/json'
+    }
   });
 
-  if (!response.ok) return null;
+  if (!res.ok) return null;
 
-  const payload = await response.json();
-  const record = pickFirst(payload);
-  return mapCompanyRecord(record, lookupQuery);
+  const json = await res.json();
+
+  const candidates = extractDeep(json);
+
+  if (!candidates.length) return null;
+
+  return mapCompany(candidates[0], query);
 }
