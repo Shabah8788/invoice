@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Save, Eye, Loader2, Crown } from "lucide-react";
+import { Save, Eye, Loader2, Crown, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PageHeader from "../components/PageHeader";
 import InvoiceForm from "../components/InvoiceForm";
@@ -85,13 +85,14 @@ function buildInvoicePayload(form, profile) {
 
 export default function InvoiceCreate() {
   const navigate = useNavigate();
-  const { isPro, invoiceCount, canCreateInvoice } = usePlan();
+  const { invoiceCount, canCreateInvoice } = usePlan();
   const [profile, setProfile] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [saveState, setSaveState] = useState("idle");
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -121,30 +122,37 @@ export default function InvoiceCreate() {
 
   useEffect(() => {
     async function load() {
-      const [profiles, custs, prods] = await Promise.all([
-        base44.entities.CompanyProfile.list("-created_date", 1),
-        base44.entities.Customer.list("-created_date", 200),
-        base44.entities.Product.list("-created_date", 200),
-      ]);
-      const p = profiles[0];
-      setProfile(p);
-      setCustomers(custs);
-      setProducts(prods);
+      setLoading(true);
+      try {
+        const [profiles, custs, prods] = await Promise.all([
+          base44.entities.CompanyProfile.list("-created_date", 1),
+          base44.entities.Customer.list("-created_date", 200),
+          base44.entities.Product.list("-created_date", 200),
+        ]);
+        const p = profiles[0];
+        setProfile(p || null);
+        setCustomers(custs || []);
+        setProducts(prods || []);
 
-      if (p) {
-        const paymentTerms = p.default_payment_terms || 30;
-        const dueDate = new Date(Date.now() + paymentTerms * 86400000).toISOString().split("T")[0];
-        setForm((f) => ({
-          ...f,
-          invoice_number: (p.next_invoice_number || 1001).toString(),
-          payment_terms: paymentTerms,
-          due_date: dueDate,
-          template: p.default_template || "modern",
-          terms: p.default_terms || "",
-          lines: f.lines.map((l) => ({ ...l, vat_rate: p.default_vat_rate || 25 })),
-        }));
+        if (p) {
+          const paymentTerms = p.default_payment_terms || 30;
+          const dueDate = new Date(Date.now() + paymentTerms * 86400000).toISOString().split("T")[0];
+          setForm((f) => ({
+            ...f,
+            invoice_number: (p.next_invoice_number || 1001).toString(),
+            payment_terms: paymentTerms,
+            due_date: dueDate,
+            template: p.default_template || "modern",
+            terms: p.default_terms || "",
+            lines: f.lines.map((l) => ({ ...l, vat_rate: p.default_vat_rate || 25 })),
+          }));
+        }
+      } catch (error) {
+        setSaveState("error");
+        toast.error("Kunde inte ladda fakturadata");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, []);
@@ -152,7 +160,7 @@ export default function InvoiceCreate() {
   const [errors, setErrors] = useState({});
 
   function validate() {
-    const e = {};
+    const nextErrors = {};
     const validLines = normalizeInvoiceLines(form.lines);
     const missingCompanyFields = [
       ["company_name", "Företagsnamn"],
@@ -161,55 +169,71 @@ export default function InvoiceCreate() {
       ["postal_code", "Postnummer"],
       ["city", "Ort"],
       ["email", "E-post"],
-    ].filter(([key]) => !sanitizeText(profile?.[key])).map(([, label]) => label);
+    ]
+      .filter(([key]) => !sanitizeText(profile?.[key]))
+      .map(([, label]) => label);
 
-    if (!profile) e.company_profile = "Företagsprofil saknas";
+    if (!profile) nextErrors.company_profile = "Företagsprofil saknas";
     if (missingCompanyFields.length) {
-      e.company_profile = `Komplettera företagsprofilen: ${missingCompanyFields.join(", ")}`;
+      nextErrors.company_profile = `Komplettera företagsprofilen: ${missingCompanyFields.join(", ")}`;
     }
 
-    if (!form.customer_id) e.customer_id = "Välj en kund";
-    if (!sanitizeText(form.customer_name)) e.customer_name = "Kundnamn krävs";
-    if (!sanitizeText(form.customer_address)) e.customer_address = "Kundadress krävs";
-    if (!sanitizeText(form.customer_postal_code)) e.customer_postal_code = "Postnummer krävs";
-    if (!sanitizeText(form.customer_city)) e.customer_city = "Ort krävs";
-    if (!sanitizeText(form.invoice_number)) e.invoice_number = "Fakturanummer krävs";
-    if (!form.invoice_date) e.invoice_date = "Fakturadatum krävs";
-    if (!form.due_date) e.due_date = "Förfallodatum krävs";
-    if (!validLines.length) e.lines = "Minst en komplett rad krävs";
+    if (!form.customer_id) nextErrors.customer_id = "Välj en kund";
+    if (!sanitizeText(form.customer_name)) nextErrors.customer_name = "Kundnamn krävs";
+    if (!sanitizeText(form.customer_address)) nextErrors.customer_address = "Kundadress krävs";
+    if (!sanitizeText(form.customer_postal_code)) nextErrors.customer_postal_code = "Postnummer krävs";
+    if (!sanitizeText(form.customer_city)) nextErrors.customer_city = "Ort krävs";
+    if (!sanitizeText(form.invoice_number)) nextErrors.invoice_number = "Fakturanummer krävs";
+    if (!form.invoice_date) nextErrors.invoice_date = "Fakturadatum krävs";
+    if (!form.due_date) nextErrors.due_date = "Förfallodatum krävs";
+    if (!validLines.length) nextErrors.lines = "Minst en komplett rad krävs";
 
     const invalidLineIndex = validLines.findIndex(
       (line) => !line.unit || line.quantity <= 0 || line.unit_price < 0 || line.vat_rate < 0 || line.discount_percent < 0 || line.discount_percent > 100
     );
 
     if (invalidLineIndex !== -1) {
-      e.lines = `Kontrollera fakturarad ${invalidLineIndex + 1}: namn, enhet, antal, pris, rabatt och moms måste vara giltiga`;
+      nextErrors.lines = `Kontrollera fakturarad ${invalidLineIndex + 1}: namn, enhet, antal, pris, rabatt och moms måste vara giltiga`;
     }
 
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    setErrors(nextErrors);
+    return {
+      isValid: Object.keys(nextErrors).length === 0,
+      nextErrors,
+    };
   }
 
   async function handleSave() {
-    if (!validate()) {
-      toast.error(errors.company_profile || "Fyll i alla obligatoriska fakturafält och kontrollera företagsprofilen");
+    const { isValid, nextErrors } = validate();
+    if (!isValid) {
+      setSaveState("error");
+      toast.error(nextErrors.company_profile || nextErrors.customer_id || nextErrors.lines || "Fyll i alla obligatoriska fakturafält");
       return;
     }
 
     setSaving(true);
+    setSaveState("saving");
+
     try {
       const invoiceData = buildInvoicePayload(form, profile);
-
       await base44.entities.Invoice.create(invoiceData);
 
-      if (profile) {
-        await base44.entities.CompanyProfile.update(profile.id, {
+      if (profile?.id) {
+        const updatedProfile = {
+          ...profile,
           next_invoice_number: (Number(form.invoice_number) || 1000) + 1,
-        });
+        };
+        await base44.entities.CompanyProfile.update(profile.id, updatedProfile);
+        setProfile(updatedProfile);
       }
 
+      setSaveState("saved");
       toast.success("Faktura skapad!");
       navigate("/invoices");
+    } catch (error) {
+      console.error("Invoice save failed", error);
+      setSaveState("error");
+      toast.error("Det gick inte att spara fakturan. Kontrollera backend och försök igen.");
     } finally {
       setSaving(false);
     }
@@ -242,7 +266,7 @@ export default function InvoiceCreate() {
   const previewInvoice = buildInvoicePayload(form, profile);
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         title="Ny faktura"
         description={`Fakturanummer: ${form.invoice_number}`}
@@ -251,13 +275,26 @@ export default function InvoiceCreate() {
             <Button variant="outline" className="gap-2" onClick={() => setPreviewOpen(true)}>
               <Eye className="h-4 w-4" /> Förhandsgranska
             </Button>
-            <Button className="gap-2" onClick={handleSave} disabled={saving}>
+            <Button className="gap-2 orange-glow" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Spara
+              {saving ? "Sparar…" : "Spara"}
             </Button>
           </div>
         }
       />
+
+      <div className="surface-card px-4 py-3 md:px-5 md:py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-900">Sparstatus</p>
+          <p className="text-xs text-muted-foreground">Vi validerar fakturadata innan den sparas i databasen.</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          {saveState === "saving" && <><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>Sparar faktura…</span></>}
+          {saveState === "saved" && <><CheckCircle2 className="h-4 w-4 text-emerald-600" /><span>Fakturan sparades</span></>}
+          {saveState === "error" && <><AlertCircle className="h-4 w-4 text-destructive" /><span>Åtgärda markerade fält och försök igen</span></>}
+          {saveState === "idle" && <span className="text-muted-foreground">Redo att spara</span>}
+        </div>
+      </div>
 
       <InvoiceForm
         form={form}
