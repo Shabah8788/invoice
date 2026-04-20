@@ -1,13 +1,22 @@
 export default function PageHeader({ title, description, actions }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
+          {title}
+        </h1>
         {description && (
-          <p className="text-muted-foreground mt-1">{description}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {description}
+          </p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-3">{actions}</div>}
+
+      {actions && (
+        <div className="flex items-center gap-2">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
