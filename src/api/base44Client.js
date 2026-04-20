@@ -47,6 +47,10 @@ export const base44 = {
   },
 
   integrations: {
+    companyLookup: {
+      lookup: (query) => api('/integrations/company-lookup', 'POST', { query }),
+      autocomplete: (query) => api('/integrations/company-autocomplete', 'POST', { query })
+    },
     Core: {
       SendEmail: (data) => api('/integrations/send-email','POST',data),
       UploadFile: (file) => {
