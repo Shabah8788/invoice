@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Building2, Save, Loader2, Upload, Search } from "lucide-react";
+import { Building2, Save, Loader2, Upload, Search, CheckCircle2, AlertCircle } from "lucide-react";
 import TemplatePicker from "../components/TemplatePicker";
 import { TEMPLATE_OPTIONS } from "../lib/templateOptions";
 import { Button } from "@/components/ui/button";
@@ -17,30 +17,43 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [profileId, setProfileId] = useState(null);
+  const [saveState, setSaveState] = useState("idle");
 
   useEffect(() => {
     loadProfile();
   }, []);
 
   async function loadProfile() {
-    const profiles = await base44.entities.CompanyProfile.list("-created_date", 1);
-    if (profiles.length > 0) {
-      setForm(profiles[0]);
-      setProfileId(profiles[0].id);
-    } else {
-      setForm({
-        company_name: "", org_number: "", vat_number: "", address: "", postal_code: "",
-        city: "", country: "Sverige", email: "", phone: "", website: "", logo_url: "",
-        bankgiro: "", plusgiro: "", swish: "", iban: "", bic: "", bank_name: "",
-        default_payment_terms: 30, default_vat_rate: 25, default_terms: "",
-        default_template: "modern", primary_color: "#2563eb", next_invoice_number: 1001,
-      });
+    setLoading(true);
+    try {
+      const profiles = await base44.entities.CompanyProfile.list("-created_date", 1);
+      if (profiles.length > 0) {
+        setForm(profiles[0]);
+        setProfileId(profiles[0].id);
+      } else {
+        setForm({
+          company_name: "", org_number: "", vat_number: "", address: "", postal_code: "",
+          city: "", country: "Sverige", email: "", phone: "", website: "", logo_url: "",
+          bankgiro: "", plusgiro: "", swish: "", iban: "", bic: "", bank_name: "",
+          default_payment_terms: 30, default_vat_rate: 25, default_terms: "",
+          default_template: "modern", primary_color: "#2563eb", next_invoice_number: 1001,
+        });
+      }
+      setSaveState("idle");
+    } catch (error) {
+      console.error("Profile load failed", error);
+      setSaveState("error");
+      toast.error("Det gick inte att ladda företagsprofilen.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+    if (saveState === "saved") {
+      setSaveState("idle");
+    }
   }
 
   async function lookupOrg() {
@@ -49,34 +62,39 @@ export default function Settings() {
       return;
     }
     setLookupLoading(true);
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Hämta företagsinformation för svenskt organisationsnummer: ${form.org_number}. Returnera företagsnamn, adress, postnummer, stad, momsregistreringsnummer.`,
-      add_context_from_internet: true,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          company_name: { type: "string" },
-          address: { type: "string" },
-          postal_code: { type: "string" },
-          city: { type: "string" },
-          vat_number: { type: "string" },
+    try {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `Hämta företagsinformation för svenskt organisationsnummer: ${form.org_number}. Returnera företagsnamn, adress, postnummer, stad, momsregistreringsnummer.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            company_name: { type: "string" },
+            address: { type: "string" },
+            postal_code: { type: "string" },
+            city: { type: "string" },
+            vat_number: { type: "string" },
+          },
         },
-      },
-    });
-    if (result.company_name) {
-      setForm((f) => ({
-        ...f,
-        company_name: result.company_name || f.company_name,
-        address: result.address || f.address,
-        postal_code: result.postal_code || f.postal_code,
-        city: result.city || f.city,
-        vat_number: result.vat_number || f.vat_number,
-      }));
-      toast.success("Uppgifter hämtade!");
-    } else {
-      toast.error("Kunde inte hitta företaget");
+      });
+      if (result.company_name) {
+        setForm((f) => ({
+          ...f,
+          company_name: result.company_name || f.company_name,
+          address: result.address || f.address,
+          postal_code: result.postal_code || f.postal_code,
+          city: result.city || f.city,
+          vat_number: result.vat_number || f.vat_number,
+        }));
+        toast.success("Uppgifter hämtade!");
+      } else {
+        toast.error("Kunde inte hitta företaget");
+      }
+    } catch (error) {
+      toast.error("Lookup misslyckades");
+    } finally {
+      setLookupLoading(false);
     }
-    setLookupLoading(false);
   }
 
   async function handleLogoUpload(e) {
@@ -89,24 +107,36 @@ export default function Settings() {
 
   async function handleSave() {
     if (!form.company_name) {
+      setSaveState("error");
       toast.error("Företagsnamn krävs");
       return;
     }
+
     setSaving(true);
-    const data = {
-      ...form,
-      default_payment_terms: Number(form.default_payment_terms),
-      default_vat_rate: Number(form.default_vat_rate),
-      next_invoice_number: Number(form.next_invoice_number),
-    };
-    if (profileId) {
-      await base44.entities.CompanyProfile.update(profileId, data);
-    } else {
-      const created = await base44.entities.CompanyProfile.create(data);
-      setProfileId(created.id);
+    setSaveState("saving");
+
+    try {
+      const data = {
+        ...form,
+        default_payment_terms: Number(form.default_payment_terms),
+        default_vat_rate: Number(form.default_vat_rate),
+        next_invoice_number: Number(form.next_invoice_number),
+      };
+      if (profileId) {
+        await base44.entities.CompanyProfile.update(profileId, data);
+      } else {
+        const created = await base44.entities.CompanyProfile.create(data);
+        setProfileId(created.id);
+      }
+      setSaveState("saved");
+      toast.success("Företagsprofil sparad!");
+    } catch (error) {
+      console.error("Company profile save failed", error);
+      setSaveState("error");
+      toast.error("Det gick inte att spara företagsprofilen. Försök igen.");
+    } finally {
+      setSaving(false);
     }
-    toast.success("Företagsprofil sparad!");
-    setSaving(false);
   }
 
   if (loading || !form) {
@@ -118,20 +148,32 @@ export default function Settings() {
   }
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         title="Företagsprofil"
         description="Dina företagsuppgifter som visas på fakturorna"
         actions={
           <Button className="gap-2" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Spara
+            {saving ? "Sparar…" : "Spara"}
           </Button>
         }
       />
 
+      <div className="surface-card px-4 py-3 md:px-5 md:py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-900">Sparstatus</p>
+          <p className="text-xs text-muted-foreground">Företagsprofilen sparas utan att ändra befintlig affärslogik.</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          {saveState === "saving" && <><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>Sparar företagsprofil…</span></>}
+          {saveState === "saved" && <><CheckCircle2 className="h-4 w-4 text-emerald-600" /><span>Företagsprofilen sparades</span></>}
+          {saveState === "error" && <><AlertCircle className="h-4 w-4 text-destructive" /><span>Kontrollera uppgifterna och försök igen</span></>}
+          {saveState === "idle" && <span className="text-muted-foreground">Redo att spara</span>}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Company Info */}
         <div className="bg-card rounded-xl border border-border p-6 space-y-4">
           <h2 className="font-semibold flex items-center gap-2">
             <Building2 className="h-4 w-4" /> Företagsuppgifter
@@ -212,7 +254,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Bank & Settings */}
         <div className="space-y-6">
           <div className="bg-card rounded-xl border border-border p-6 space-y-4">
             <h2 className="font-semibold">Bankuppgifter</h2>
