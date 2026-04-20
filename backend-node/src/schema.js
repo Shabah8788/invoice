@@ -1,4 +1,22 @@
-import { pgTable, varchar, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, jsonb } from "drizzle-orm/pg-core";
+
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  subscription: text("subscription").default("free"),
+});
+
+export const organizationMembers = pgTable("organization_members", {
+  userId: varchar("user_id").notNull(),
+  organizationId: varchar("organization_id").notNull(),
+  role: text("role").default("admin"),
+});
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey(),
