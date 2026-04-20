@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const emptyProduct = {
@@ -32,6 +32,7 @@ const units = [
 export default function ProductDialog({ open, onClose, product, onSaved }) {
   const [form, setForm] = useState(emptyProduct);
   const [loading, setLoading] = useState(false);
+  const [saveState, setSaveState] = useState("idle");
 
   useEffect(() => {
     if (product) {
@@ -39,6 +40,7 @@ export default function ProductDialog({ open, onClose, product, onSaved }) {
     } else {
       setForm(emptyProduct);
     }
+    setSaveState("idle");
   }, [product, open]);
 
   function update(field, value) {
@@ -46,20 +48,40 @@ export default function ProductDialog({ open, onClose, product, onSaved }) {
   }
 
   async function handleSave() {
-    if (!form.name) { toast.error("Namn krävs"); return; }
-    if (!form.price) { toast.error("Pris krävs"); return; }
-    setLoading(true);
-    const data = { ...form, price: parseFloat(form.price), vat_rate: Number(form.vat_rate) };
-    if (product?.id) {
-      await base44.entities.Product.update(product.id, data);
-      toast.success("Produkt uppdaterad");
-    } else {
-      await base44.entities.Product.create(data);
-      toast.success("Produkt skapad");
+    if (!form.name) {
+      setSaveState("error");
+      toast.error("Namn krävs");
+      return;
     }
-    setLoading(false);
-    onSaved();
-    onClose();
+    if (!form.price) {
+      setSaveState("error");
+      toast.error("Pris krävs");
+      return;
+    }
+
+    setLoading(true);
+    setSaveState("saving");
+
+    try {
+      const data = { ...form, price: parseFloat(form.price), vat_rate: Number(form.vat_rate) };
+      if (product?.id) {
+        await base44.entities.Product.update(product.id, data);
+        toast.success("Produkt uppdaterad");
+      } else {
+        await base44.entities.Product.create(data);
+        toast.success("Produkt skapad");
+      }
+
+      setSaveState("saved");
+      await onSaved();
+      onClose();
+    } catch (error) {
+      console.error("Product save failed", error);
+      setSaveState("error");
+      toast.error("Det gick inte att spara produkten. Försök igen.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -70,6 +92,15 @@ export default function ProductDialog({ open, onClose, product, onSaved }) {
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              {saveState === "saving" && <><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>Sparar produkt…</span></>}
+              {saveState === "saved" && <><CheckCircle2 className="h-4 w-4 text-emerald-600" /><span>Produkten sparades</span></>}
+              {saveState === "error" && <><AlertCircle className="h-4 w-4 text-destructive" /><span>Kontrollera fälten och försök igen</span></>}
+              {saveState === "idle" && <span className="text-muted-foreground">Redo att spara</span>}
+            </div>
+          </div>
+
           <div>
             <Label>Namn</Label>
             <Input value={form.name} onChange={(e) => update("name", e.target.value)} />
@@ -119,7 +150,7 @@ export default function ProductDialog({ open, onClose, product, onSaved }) {
             <Button variant="outline" onClick={onClose}>Avbryt</Button>
             <Button onClick={handleSave} disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {product ? "Spara" : "Skapa"}
+              {loading ? "Sparar…" : product ? "Spara" : "Skapa"}
             </Button>
           </div>
         </div>
