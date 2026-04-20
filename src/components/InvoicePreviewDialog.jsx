@@ -2,6 +2,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, X } from "lucide-react";
 import InvoiceTemplate from "./InvoiceTemplate";
+import ModernA4InvoiceTemplate from "./templates/ModernA4InvoiceTemplate";
 import { useRef } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -12,6 +13,10 @@ export default function InvoicePreviewDialog({ open, onClose, invoice }) {
   const printRef = useRef();
 
   const safeInvoice = normalizeInvoiceForRender(invoice);
+
+  const TemplateComponent = safeInvoice?.template === "modern"
+    ? ModernA4InvoiceTemplate
+    : InvoiceTemplate;
 
   async function handleDownloadPDF() {
     const element = printRef.current;
@@ -60,12 +65,9 @@ export default function InvoicePreviewDialog({ open, onClose, invoice }) {
             style={{
               width: "210mm",
               minHeight: "297mm",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-start",
             }}
           >
-            <InvoiceTemplate invoice={safeInvoice} />
+            <TemplateComponent invoice={safeInvoice} />
           </div>
         </div>
       </DialogContent>
