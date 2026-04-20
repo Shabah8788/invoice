@@ -11,14 +11,32 @@ import {
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/invoices", label: "Fakturor", icon: FileText },
-  { path: "/invoices/new", label: "Ny faktura", icon: Plus },
-  { path: "/customers", label: "Kunder", icon: Users },
-  { path: "/products", label: "Produkter", icon: Package },
-  { path: "/settings", label: "Företag", icon: Building2 },
-  { path: "/pricing", label: "Plan", icon: Crown },
+const sections = [
+  {
+    title: "Översikt",
+    items: [{ path: "/", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    title: "Fakturering",
+    items: [
+      { path: "/invoices", label: "Fakturor", icon: FileText },
+      { path: "/invoices/new", label: "Ny faktura", icon: Plus },
+    ],
+  },
+  {
+    title: "CRM",
+    items: [
+      { path: "/customers", label: "Kunder", icon: Users },
+      { path: "/products", label: "Produkter", icon: Package },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      { path: "/settings", label: "Företag", icon: Building2 },
+      { path: "/pricing", label: "Plan", icon: Crown },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -38,26 +56,35 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
-          const Icon = item.icon;
+      <nav className="flex-1 px-3 py-4 space-y-4">
+        {sections.map((section) => (
+          <div key={section.title}>
+            <div className="px-3 text-[11px] uppercase text-slate-400 mb-1">
+              {section.title}
+            </div>
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
+                const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="px-3 pb-4">
