@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const emptyCustomer = {
@@ -30,6 +30,7 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
   const [lookupQuery, setLookupQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [saveState, setSaveState] = useState("idle");
 
   useEffect(() => {
     if (customer) {
@@ -40,6 +41,7 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
       setForm(emptyCustomer);
       setLookupQuery("");
     }
+    setSaveState("idle");
   }, [customer, open]);
 
   function update(field, value) {
@@ -98,10 +100,14 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
 
   async function handleSave() {
     if (!form.company_name) {
+      setSaveState("error");
       toast.error("Namn krävs");
       return;
     }
+
     setLoading(true);
+    setSaveState("saving");
+
     try {
       if (customer?.id) {
         await base44.entities.Customer.update(customer.id, form);
@@ -110,8 +116,14 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
         await base44.entities.Customer.create(form);
         toast.success("Kund skapad");
       }
-      onSaved();
+
+      setSaveState("saved");
+      await onSaved();
       onClose();
+    } catch (error) {
+      console.error("Customer save failed", error);
+      setSaveState("error");
+      toast.error("Det gick inte att spara kunden. Försök igen.");
     } finally {
       setLoading(false);
     }
@@ -125,6 +137,15 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              {saveState === "saving" && <><Loader2 className="h-4 w-4 animate-spin text-primary" /><span>Sparar kund…</span></>}
+              {saveState === "saved" && <><CheckCircle2 className="h-4 w-4 text-emerald-600" /><span>Kunden sparades</span></>}
+              {saveState === "error" && <><AlertCircle className="h-4 w-4 text-destructive" /><span>Kontrollera fälten och försök igen</span></>}
+              {saveState === "idle" && <span className="text-muted-foreground">Redo att spara</span>}
+            </div>
+          </div>
+
           <div>
             <Label>Kundtyp</Label>
             <Select value={form.customer_type} onValueChange={(v) => update("customer_type", v)}>
@@ -202,7 +223,7 @@ export default function CustomerDialog({ open, onClose, customer, onSaved }) {
             <Button variant="outline" onClick={onClose}>Avbryt</Button>
             <Button onClick={handleSave} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {customer ? "Spara" : "Skapa kund"}
+              {loading ? "Sparar…" : customer ? "Spara" : "Skapa kund"}
             </Button>
           </div>
         </div>
