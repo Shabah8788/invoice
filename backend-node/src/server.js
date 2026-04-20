@@ -5,8 +5,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { v4 as uuid } from 'uuid';
-import { db } from './db.drizzle.js';
-import { users, organizations, organizationMembers, customers, products, invoices, companyProfiles } from './schema.js';
+import { db } from './db/index.js';
+import { users, organizations, organizationMembers, customers, products, invoices, companyProfiles } from './db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { searchLocalCompany, searchExternalCompany, searchExternalCompanies, searchLocalCompanies } from './companyLookup.js';
 
@@ -113,5 +113,29 @@ app.get('/api/company-profile', auth, async (req, res) => res.json(await company
 app.post('/api/company-profile', auth, async (req, res) => res.json(await companyProfileEntity.create(req.user.orgId, req.body)));
 app.put('/api/company-profile/:id', auth, async (req, res) => res.json(await companyProfileEntity.update(req.user.orgId, req.params.id, req.body)));
 app.delete('/api/company-profile/:id', auth, async (req, res) => res.json(await companyProfileEntity.remove(req.user.orgId, req.params.id)));
+
+app.post('/api/integrations/company-autocomplete', auth, async (req, res) => {
+  const queryStr = String(req.body?.query || '').trim();
+  if (!queryStr || queryStr.length < 2) return res.json({ items: [] });
+
+  const local = await searchLocalCompanies(req.user.orgId, queryStr);
+  const external = await searchExternalCompanies(queryStr);
+
+  const items = [...local, ...external].slice(0, 8);
+  res.json({ items });
+});
+
+app.post('/api/integrations/company-lookup', auth, async (req, res) => {
+  const queryStr = String(req.body?.query || '').trim();
+  if (!queryStr) return res.status(400).json({ error: 'Query required' });
+
+  const local = await searchLocalCompany(req.user.orgId, queryStr);
+  if (local) return res.json({ found: true, source: 'local', company: local });
+
+  const external = await searchExternalCompany(queryStr);
+  if (external) return res.json({ found: true, source: 'external', company: external });
+
+  return res.json({ found: false });
+});
 
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
