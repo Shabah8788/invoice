@@ -6,8 +6,8 @@ import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { v4 as uuid } from 'uuid';
 import { db } from './db.drizzle.js';
-import { users, organizations, organizationMembers, customers } from './schema.js';
-import { eq } from 'drizzle-orm';
+import { users, organizations, organizationMembers, customers, products, invoices, companyProfiles } from './schema.js';
+import { eq, and } from 'drizzle-orm';
 import { searchLocalCompany, searchExternalCompany, searchExternalCompanies, searchLocalCompanies } from './companyLookup.js';
 
 dotenv.config();
@@ -31,16 +31,32 @@ function auth(req, res, next) {
   }
 }
 
-async function listCustomers(orgId) {
-  const rows = await db.select().from(customers).where(eq(customers.organizationId, orgId));
-  return rows.map(x => ({ id: x.id, ...x.data }));
+function entity(table) {
+  return {
+    list: async (orgId) => {
+      const rows = await db.select().from(table).where(eq(table.organizationId, orgId));
+      return rows.map(r => ({ id: r.id, ...(r.data || {}) }));
+    },
+    create: async (orgId, body) => {
+      const id = uuid();
+      await db.insert(table).values({ id, organizationId: orgId, data: body });
+      return { id, ...body };
+    },
+    update: async (orgId, id, body) => {
+      await db.update(table).set({ data: body }).where(and(eq(table.id, id), eq(table.organizationId, orgId)));
+      return { ok: true };
+    },
+    remove: async (orgId, id) => {
+      await db.delete(table).where(and(eq(table.id, id), eq(table.organizationId, orgId)));
+      return { ok: true };
+    }
+  };
 }
 
-async function createCustomer(orgId, body) {
-  const id = uuid();
-  await db.insert(customers).values({ id, organizationId: orgId, data: body });
-  return { id };
-}
+const customerEntity = entity(customers);
+const productEntity = entity(products);
+const invoiceEntity = entity(invoices);
+const companyProfileEntity = entity(companyProfiles);
 
 app.post('/api/auth/register', async (req, res) => {
   const { email, password } = req.body;
@@ -50,7 +66,7 @@ app.post('/api/auth/register', async (req, res) => {
 
   await db.insert(users).values({ id: userId, email, passwordHash: hash });
   await db.insert(organizations).values({ id: orgId, name: 'My Company' });
-  await db.insert(organizationMembers).values({ userId, organizationId: orgId });
+  await db.insert(organizationMembers).values({ userId, organizationId: orgId, role: 'admin' });
 
   const token = jwt.sign({ userId, orgId }, SECRET);
   res.json({ token });
@@ -65,44 +81,37 @@ app.post('/api/auth/login', async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
 
-  const org = await db.select().from(organizationMembers).where(eq(organizationMembers.userId, user.id));
-  const orgId = org[0].organizationId;
+  const memberships = await db.select().from(organizationMembers).where(eq(organizationMembers.userId, user.id));
+  const orgId = memberships[0]?.organizationId;
 
   const token = jwt.sign({ userId: user.id, orgId }, SECRET);
   res.json({ token });
 });
 
 app.get('/api/auth/me', auth, async (req, res) => {
-  const user = await db.select().from(users).where(eq(users.id, req.user.userId));
-  res.json(user[0]);
+  const result = await db.select().from(users).where(eq(users.id, req.user.userId));
+  const user = result[0];
+  res.json({ id: user.id, email: user.email, subscription: user.subscription || 'free' });
 });
 
-app.get('/api/customers', auth, async (req, res) => res.json(await listCustomers(req.user.orgId)));
-app.post('/api/customers', auth, async (req, res) => res.json(await createCustomer(req.user.orgId, req.body)));
+app.get('/api/customers', auth, async (req, res) => res.json(await customerEntity.list(req.user.orgId)));
+app.post('/api/customers', auth, async (req, res) => res.json(await customerEntity.create(req.user.orgId, req.body)));
+app.put('/api/customers/:id', auth, async (req, res) => res.json(await customerEntity.update(req.user.orgId, req.params.id, req.body)));
+app.delete('/api/customers/:id', auth, async (req, res) => res.json(await customerEntity.remove(req.user.orgId, req.params.id)));
 
-app.post('/api/integrations/company-autocomplete', auth, async (req, res) => {
-  const queryStr = String(req.body?.query || '').trim();
-  if (!queryStr || queryStr.length < 2) return res.json({ items: [] });
+app.get('/api/products', auth, async (req, res) => res.json(await productEntity.list(req.user.orgId)));
+app.post('/api/products', auth, async (req, res) => res.json(await productEntity.create(req.user.orgId, req.body)));
+app.put('/api/products/:id', auth, async (req, res) => res.json(await productEntity.update(req.user.orgId, req.params.id, req.body)));
+app.delete('/api/products/:id', auth, async (req, res) => res.json(await productEntity.remove(req.user.orgId, req.params.id)));
 
-  const local = await searchLocalCompanies(req.user.orgId, queryStr);
-  const external = await searchExternalCompanies(queryStr);
+app.get('/api/invoices', auth, async (req, res) => res.json(await invoiceEntity.list(req.user.orgId)));
+app.post('/api/invoices', auth, async (req, res) => res.json(await invoiceEntity.create(req.user.orgId, req.body)));
+app.put('/api/invoices/:id', auth, async (req, res) => res.json(await invoiceEntity.update(req.user.orgId, req.params.id, req.body)));
+app.delete('/api/invoices/:id', auth, async (req, res) => res.json(await invoiceEntity.remove(req.user.orgId, req.params.id)));
 
-  const items = [...local, ...external].slice(0, 8);
-
-  res.json({ items });
-});
-
-app.post('/api/integrations/company-lookup', auth, async (req, res) => {
-  const queryStr = String(req.body?.query || '').trim();
-  if (!queryStr) return res.status(400).json({ error: 'Query required' });
-
-  const local = await searchLocalCompany(req.user.orgId, queryStr);
-  if (local) return res.json({ found: true, source: 'local', company: local });
-
-  const external = await searchExternalCompany(queryStr);
-  if (external) return res.json({ found: true, source: 'external', company: external });
-
-  return res.json({ found: false });
-});
+app.get('/api/company-profile', auth, async (req, res) => res.json(await companyProfileEntity.list(req.user.orgId)));
+app.post('/api/company-profile', auth, async (req, res) => res.json(await companyProfileEntity.create(req.user.orgId, req.body)));
+app.put('/api/company-profile/:id', auth, async (req, res) => res.json(await companyProfileEntity.update(req.user.orgId, req.params.id, req.body)));
+app.delete('/api/company-profile/:id', auth, async (req, res) => res.json(await companyProfileEntity.remove(req.user.orgId, req.params.id)));
 
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
