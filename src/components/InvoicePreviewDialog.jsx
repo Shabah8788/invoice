@@ -6,9 +6,12 @@ import { useRef } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { normalizeInvoiceForRender } from "../lib/invoiceValidation";
 
 export default function InvoicePreviewDialog({ open, onClose, invoice }) {
   const printRef = useRef();
+
+  const safeInvoice = normalizeInvoiceForRender(invoice);
 
   async function handleDownloadPDF() {
     const element = printRef.current;
@@ -28,7 +31,7 @@ export default function InvoicePreviewDialog({ open, onClose, invoice }) {
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Faktura_${invoice?.invoice_number || "utkast"}.pdf`);
+    pdf.save(`Faktura_${safeInvoice?.invoice_number || "utkast"}.pdf`);
 
     toast.dismiss();
     toast.success("PDF nedladdad!");
@@ -38,7 +41,7 @@ export default function InvoicePreviewDialog({ open, onClose, invoice }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0">
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
           <h2 className="font-semibold">Förhandsgranskning</h2>
           <div className="flex gap-2">
@@ -51,8 +54,18 @@ export default function InvoicePreviewDialog({ open, onClose, invoice }) {
           </div>
         </div>
         <div className="p-6 bg-muted">
-          <div ref={printRef} className="bg-white shadow-lg mx-auto" style={{ maxWidth: "210mm" }}>
-            <InvoiceTemplate invoice={invoice} />
+          <div
+            ref={printRef}
+            className="bg-white shadow-lg mx-auto"
+            style={{
+              width: "210mm",
+              minHeight: "297mm",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-start",
+            }}
+          >
+            <InvoiceTemplate invoice={safeInvoice} />
           </div>
         </div>
       </DialogContent>
